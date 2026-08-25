@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Vehículo</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f2f4f7;color:#1f2937}
+    .app{max-width:1100px;margin:auto;padding:20px}
+    header{background:#111827;color:white;padding:22px;border-radius:18px;margin-bottom:20px}
+    h1,h2,h3{margin-top:0}
+    .screen{display:none}
+    .screen.active{display:block}
+    .card{background:white;border-radius:18px;padding:22px;margin-bottom:18px;box-shadow:0 5px 18px #00000012}
+    .profiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+    .profile{border:2px solid #e5e7eb;border-radius:16px;padding:18px;cursor:pointer;transition:.2s}
+    .profile:hover{border-color:#2563eb;transform:translateY(-2px)}
+    label{display:block;font-weight:bold;margin:12px 0 6px}
+    input,select{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px}
+    button{border:0;border-radius:10px;padding:12px 18px;font-weight:bold;cursor:pointer;margin-top:14px}
+    .primary{background:#2563eb;color:white}
+    .secondary{background:#e5e7eb;color:#111827}
+    .danger{background:#dc2626;color:white}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+    .stat{background:#f8fafc;border-radius:14px;padding:18px;border-left:5px solid #2563eb}
+    .stat .value{font-size:25px;font-weight:bold;margin-top:8px}
+    .periods{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+    .periods button{margin:0}
+    .periods button.selected{background:#111827;color:white}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:11px;border-bottom:1px solid #e5e7eb}
+    .small{color:#6b7280;font-size:14px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+    .profile-menu-header{text-align:center}
+    .menu-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+    .menu-option{background:white;border:2px solid #e5e7eb;border-radius:18px;padding:24px;cursor:pointer;display:flex;gap:18px;align-items:flex-start;transition:.2s;box-shadow:0 5px 18px #00000012}
+    .menu-option:hover{border-color:#2563eb;transform:translateY(-3px)}
+    .menu-option h3{margin:0 0 8px}
+    .menu-option p{margin:0;color:#6b7280;line-height:1.5}
+    .menu-icon{font-size:42px;line-height:1}
+    @media(max-width:650px){.row{grid-template-columns:1fr}}
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🚗 Control de Vehículo</h1>
+    <div id="headerSubtitle">Selecciona un perfil para comenzar</div>
+  </header>
+
+  <!-- MENÚ PRINCIPAL -->
+  <section id="home" class="screen active">
+    <div class="card">
+      <h2>Perfiles</h2>
+      <p class="small">Selecciona un usuario para consultar sus datos.</p>
+      <div id="profiles" class="profiles"></div>
+    </div>
+
+    <div class="card">
+      <h2>Crear perfil</h2>
+      <div class="row">
+        <div>
+          <label for="userName">Usuario</label>
+          <input id="userName" type="text" placeholder="Ej. Juan">
+        </div>
+        <div>
+          <label for="car">Carro</label>
+          <select id="car">
+            <option value="Aveo 2018">Aveo 2018</option>
+            <option value="Chevrolet Beat">Chevrolet Beat</option>
+            <option value="Kia K4 2027">Kia K4 2027</option>
+          </select>
+        </div>
+      </div>
+      <button class="primary" onclick="createProfile()">Guardar perfil</button>
+    </div>
+  </section>
+
+  <!-- MENÚ DEL PERFIL -->
+  <section id="profileMenu" class="screen">
+    <button class="secondary" onclick="showHome()">← Volver a perfiles</button>
+    <div class="card profile-menu-header">
+      <h2 id="menuProfileTitle"></h2>
+      <p id="menuProfileCar" class="small"></p>
+    </div>
+    <div class="menu-options">
+      <div class="menu-option" onclick="openVehicleControl()">
+        <div class="menu-icon">🚗</div>
+        <div><h3>Control del vehículo</h3><p>Kilometraje, gasolina, gastos extra y horas de uso.</p></div>
+      </div>
+      <div class="menu-option" onclick="openTrips()">
+        <div class="menu-icon">💵</div>
+        <div><h3>Viajes</h3><p>Registra con cuánto dinero inicias y con cuánto dinero finalizas cada viaje.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIAJES -->
+  <section id="trips" class="screen">
+    <button class="secondary" onclick="openProfileMenu()">← Volver al menú</button>
+    <div class="card">
+      <h2 id="tripsTitle"></h2>
+      <p id="tripsCar" class="small"></p>
+    </div>
+    <div class="card">
+      <h2>💵 Inicio de turno</h2>
+      <div class="row">
+        <div><label for="tripDate">Fecha</label><input id="tripDate" type="date"></div>
+        <div>
+          <label for="tripShift">Turno</label>
+          <select id="tripShift">
+            <option value="Mañana">🌅 Mañana</option>
+            <option value="Noche">🌙 Noche</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label for="tripStartMoney">Dinero al iniciar ($)</label><input id="tripStartMoney" type="number" min="0" step="0.01" placeholder="Ej. 500"></div>
+        <div><label for="tripEndMoney">Dinero al finalizar ($)</label><input id="tripEndMoney" type="number" min="0" step="0.01" placeholder="Ej. 1250"></div>
+      </div>
+      <button class="primary" onclick="addTrip()">Guardar inicio de turno</button>
+      <button class="secondary" onclick="downloadTripsPDF()">📄 Descargar PDF de turnos</button>
+    </div>
+    <div class="card">
+      <h2>📋 Viajes registrados</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Fecha</th><th>Turno</th><th>Inicio</th><th>Final</th><th>Diferencia</th><th></th></tr></thead>
+          <tbody id="tripsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERFIL -->
+  <section id="dashboard" class="screen">
+    <button class="secondary" onclick="openProfileMenu()">← Volver al menú</button>
+
+    <div class="card">
+      <h2 id="profileTitle"></h2>
+      <p id="profileCar" class="small"></p>
+    </div>
+
+    <div class="card">
+      <h2>Resumen</h2>
+      <div class="periods">
+        <button id="dayBtn" onclick="setPeriod('day')">Por día</button>
+        <button id="weekBtn" onclick="setPeriod('week')">Por semana</button>
+        <button id="monthBtn" onclick="setPeriod('month')">Por mes</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div>Kilometraje</div>
+          <div class="value" id="kmValue">0 km</div>
+        </div>
+        <div class="stat">
+          <div>Gasolina</div>
+          <div class="value" id="gasValue">$0</div>
+        </div>
+        <div class="stat">
+          <div>Gastos extra</div>
+          <div class="value" id="extraValue">$0</div>
+        </div>
+        <div class="stat">
+          <div>Horas de uso</div>
+          <div class="value" id="hoursValue">0 h</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Agregar registro</h2>
+      <div class="row">
+        <div>
+          <label for="date">Fecha</label>
+          <input id="date" type="date">
+        </div>
+        <div>
+          <label for="km">Kilometraje (km)</label>
+          <input id="km" type="number" min="0" step="0.1" placeholder="Ej. 25">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="gas">Gasto de gasolina ($)</label>
+          <input id="gas" type="number" min="0" step="0.01" placeholder="Ej. 300">
+        </div>
+        <div>
+          <label for="extra">Gastos extra ($)</label>
+          <input id="extra" type="number" min="0" step="0.01" placeholder="Ej. 100">
+        </div>
+      </div>
+
+      <label for="hours">Horas de uso</label>
+      <input id="hours" type="number" min="0" step="0.1" placeholder="Ej. 3.5">
+
+      <button class="primary" onclick="addRecord()">Guardar registro</button>
+    </div>
+
+
+    <div class="card">
+      <h2>📄 Descargar datos en PDF</h2>
+      <p class="small">Genera y descarga directamente un PDF, incluso cuando todavía no existan registros.</p>
+      <div class="periods">
+        <button class="primary" onclick="downloadPDF('day')">📅 Descargar por día</button>
+        <button class="primary" onclick="downloadPDF('week')">📆 Descargar por semana</button>
+        <button class="primary" onclick="downloadPDF('month')">🗓️ Descargar por mes</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Registros</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Kilometraje</th>
+              <th>Gasolina</th>
+              <th>Extras</th>
+              <th>Horas</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="records"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const STORAGE_KEY = "controlVehiculoProfiles";
+  let profiles = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    profiles = Array.isArray(stored) ? stored : [];
+  } catch (error) {
+    console.warn("No se pudieron leer los perfiles guardados. Se iniciará vacío.", error);
+    profiles = [];
+  }
+  let currentProfileId = null;
+  let currentPeriod = "day";
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+  }
+
+  function formatMoney(value) {
+    return "$" + Number(value || 0).toLocaleString("es-MX", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function today() {
+    const d = new Date();
+    return d.toISOString().split("T")[0];
+  }
+
+  document.getElementById("date").value = today();
+
+  function renderProfiles() {
+    const container = document.getElementById("profiles");
+    container.innerHTML = "";
+
+    if (!profiles.length) {
+      container.innerHTML = "<p class='small'>No hay perfiles creados todavía.</p>";
+      return;
+    }
+
+    profiles.forEach(profile => {
+      if (!Array.isArray(profile.records)) profile.records = [];
+      if (!Array.isArray(profile.trips)) profile.trips = [];
+      const div = document.createElement("div");
+      div.className = "profile";
+      div.innerHTML = `
+        <h3>👤 ${escapeHTML(profile.user)}</h3>
+        <p>🚗 ${escapeHTML(profile.car)}</p>
+        <p class="small">${(profile.records || []).length} registro(s)</p>
+        <button class="danger" onclick="event.stopPropagation(); deleteProfile('${profile.id}')">🗑️ Eliminar perfil</button>
+      `;
+      div.onclick = () => openProfile(profile.id);
+      container.appendChild(div);
+    });
+  }
+
+  function createProfile() {
+    const user = document.getElementById("userName").value.trim();
+    const car = document.getElementById("car").value;
+
+    if (!user) {
+      alert("Escribe un nombre de usuario.");
+      return;
+    }
+
+    const profile = {
+      id: Date.now().toString(),
+      user,
+      car,
+      records: [],
+      trips: []
+    };
+
+    profiles.push(profile);
+    save();
+
+    document.getElementById("userName").value = "";
+    renderProfiles();
+    openProfile(profile.id);
+  }
+
+  function deleteProfile(id) {
+    const profile = profiles.find(p => p.id === id);
+    if (!profile) return;
+
+    // Eliminación directa: no muestra ventanas de confirmación del navegador.
+    profiles = profiles.filter(p => p.id !== id);
+    save();
+
+    if (currentProfileId === id) {
+      currentProfileId = null;
+      showHome();
+    } else {
+      renderProfiles();
+    }
+  }
+
+  function openProfile(id) {
+    currentProfileId = id;
+    const profile = profiles.find(p => p.id === id);
+    if (!profile) return;
+    if (!profile.trips) profile.trips = [];
+    save();
+
+    document.getElementById("home").classList.remove("active");
+    document.getElementById("dashboard").classList.remove("active");
+    document.getElementById("trips").classList.remove("active");
+    document.getElementById("profileMenu").classList.add("active");
+    document.getElementById("headerSubtitle").textContent = "Menú del perfil";
+    document.getElementById("menuProfileTitle").textContent = "👤 " + profile.user;
+    document.getElementById("menuProfileCar").textContent = "🚗 " + profile.car;
+  }
+
+  function openProfileMenu() {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile) return;
+    document.getElementById("dashboard").classList.remove("active");
+    document.getElementById("trips").classList.remove("active");
+    document.getElementById("profileMenu").classList.add("active");
+    document.getElementById("headerSubtitle").textContent = "Menú del perfil";
+    document.getElementById("menuProfileTitle").textContent = "👤 " + profile.user;
+    document.getElementById("menuProfileCar").textContent = "🚗 " + profile.car;
+  }
+
+  function openVehicleControl() {
+    document.getElementById("profileMenu").classList.remove("active");
+    document.getElementById("trips").classList.remove("active");
+    document.getElementById("dashboard").classList.add("active");
+    document.getElementById("headerSubtitle").textContent = "Control del vehículo";
+    currentPeriod = "day";
+    renderDashboard();
+  }
+
+  function openTrips() {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile) return;
+    if (!profile.trips) profile.trips = [];
+    document.getElementById("profileMenu").classList.remove("active");
+    document.getElementById("dashboard").classList.remove("active");
+    document.getElementById("trips").classList.add("active");
+    document.getElementById("headerSubtitle").textContent = "Viajes";
+    document.getElementById("tripsTitle").textContent = "💵 Viajes de " + profile.user;
+    document.getElementById("tripsCar").textContent = "🚗 " + profile.car;
+    document.getElementById("tripDate").value = today();
+    document.getElementById("tripShift").value = "Mañana";
+    renderTrips(profile);
+  }
+
+  function addTrip() {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile) return;
+    if (!profile.trips) profile.trips = [];
+
+    const date = document.getElementById("tripDate").value;
+    const shift = document.getElementById("tripShift").value;
+    const startMoney = Number(document.getElementById("tripStartMoney").value || 0);
+    const endMoney = Number(document.getElementById("tripEndMoney").value || 0);
+
+    if (!date || startMoney < 0 || endMoney < 0) return;
+
+    profile.trips.push({
+      id: Date.now().toString(),
+      date,
+      shift,
+      startMoney,
+      endMoney
+    });
+    profile.trips.sort((a,b) => b.date.localeCompare(a.date));
+    save();
+
+    document.getElementById("tripStartMoney").value = "";
+    document.getElementById("tripEndMoney").value = "";
+    renderTrips(profile);
+  }
+
+  function deleteTrip(id) {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile || !profile.trips) return;
+    profile.trips = profile.trips.filter(t => t.id !== id);
+    save();
+    renderTrips(profile);
+  }
+
+  function renderTrips(profile) {
+    const tbody = document.getElementById("tripsTable");
+    tbody.innerHTML = "";
+    const trips = profile.trips || [];
+
+    if (!trips.length) {
+      tbody.innerHTML = "<tr><td colspan='6' class='small'>No hay inicios de turno registrados todavía.</td></tr>";
+      return;
+    }
+
+    trips.forEach(t => {
+      const difference = Number(t.endMoney || 0) - Number(t.startMoney || 0);
+      const shift = t.shift || "Mañana";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${escapeHTML(t.date)}</td><td>${shift === "Noche" ? "🌙 Noche" : "🌅 Mañana"}</td><td>${formatMoney(t.startMoney)}</td><td>${formatMoney(t.endMoney)}</td><td>${formatMoney(difference)}</td><td><button class="danger" onclick="deleteTrip('${t.id}')">Eliminar</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function downloadTripsPDF() {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile || !window.jspdf || !window.jspdf.jsPDF) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("landscape");
+    const trips = (profile.trips || []).slice().sort((a,b) => b.date.localeCompare(a.date));
+
+    doc.setFontSize(18);
+    doc.text("Control de Turnos", 14, 18);
+    doc.setFontSize(11);
+    doc.text("Usuario: " + profile.user, 14, 27);
+    doc.text("Carro: " + profile.car, 14, 34);
+
+    const rows = trips.length
+      ? trips.map(t => [
+          t.date,
+          t.shift || "Mañana",
+          formatMoney(t.startMoney),
+          formatMoney(t.endMoney),
+          formatMoney(Number(t.endMoney || 0) - Number(t.startMoney || 0))
+        ])
+      : [["Sin registros", "-", "$0.00", "$0.00", "$0.00"]];
+
+    doc.autoTable({
+      startY: 42,
+      head: [["Fecha", "Turno", "Dinero inicial", "Dinero final", "Diferencia"]],
+      body: rows,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [37, 99, 235] }
+    });
+
+    const fileDate = new Date().toISOString().slice(0, 10);
+    const safeUser = profile.user.replace(/[^a-z0-9áéíóúñ_-]/gi, "_");
+    doc.save("Turnos_" + safeUser + "_" + fileDate + ".pdf");
+  }
+
+  function showHome() {
+    document.getElementById("dashboard").classList.remove("active");
+    document.getElementById("profileMenu").classList.remove("active");
+    document.getElementById("trips").classList.remove("active");
+    document.getElementById("home").classList.add("active");
+    document.getElementById("headerSubtitle").textContent = "Selecciona un perfil para comenzar";
+    renderProfiles();
+  }
+
+  function setPeriod(period) {
+    currentPeriod = period;
+    renderDashboard();
+  }
+
+  function getStartDate(period) {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+
+    if (period === "week") {
+      const day = d.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      d.setDate(d.getDate() - diff);
+    } else if (period === "month") {
+      d.setDate(1);
+    }
+
+    return d;
+  }
+
+  function renderDashboard() {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile) return;
+
+    document.getElementById("profileTitle").textContent = "👤 " + profile.user;
+    document.getElementById("profileCar").textContent = "🚗 " + profile.car;
+
+    ["day","week","month"].forEach(p => {
+      document.getElementById(p + "Btn").classList.toggle("selected", p === currentPeriod);
+    });
+
+    const start = getStartDate(currentPeriod);
+    const filtered = profile.records.filter(r => new Date(r.date + "T00:00:00") >= start);
+
+    const km = filtered.reduce((sum, r) => sum + Number(r.km || 0), 0);
+    const gas = filtered.reduce((sum, r) => sum + Number(r.gas || 0), 0);
+    const extra = filtered.reduce((sum, r) => sum + Number(r.extra || 0), 0);
+    const hours = filtered.reduce((sum, r) => sum + Number(r.hours || 0), 0);
+
+    document.getElementById("kmValue").textContent = km.toLocaleString("es-MX") + " km";
+    document.getElementById("gasValue").textContent = formatMoney(gas);
+    document.getElementById("extraValue").textContent = formatMoney(extra);
+    document.getElementById("hoursValue").textContent = hours.toLocaleString("es-MX") + " h";
+
+    renderRecords(profile);
+  }
+
+  function addRecord() {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile) return;
+
+    const date = document.getElementById("date").value;
+    const km = Number(document.getElementById("km").value || 0);
+    const gas = Number(document.getElementById("gas").value || 0);
+    const extra = Number(document.getElementById("extra").value || 0);
+    const hours = Number(document.getElementById("hours").value || 0);
+
+    if (!date) {
+      alert("Selecciona una fecha.");
+      return;
+    }
+
+    if (km === 0 && gas === 0 && extra === 0 && hours === 0) {
+      alert("Agrega al menos un dato al registro.");
+      return;
+    }
+
+    profile.records.push({
+      id: Date.now().toString(),
+      date, km, gas, extra, hours
+    });
+
+    profile.records.sort((a,b) => b.date.localeCompare(a.date));
+    save();
+
+    document.getElementById("km").value = "";
+    document.getElementById("gas").value = "";
+    document.getElementById("extra").value = "";
+    document.getElementById("hours").value = "";
+
+    renderDashboard();
+  }
+
+  function deleteRecord(id) {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile) return;
+
+    profile.records = profile.records.filter(r => r.id !== id);
+    save();
+    renderDashboard();
+  }
+
+  function renderRecords(profile) {
+    const tbody = document.getElementById("records");
+    tbody.innerHTML = "";
+
+    if (!profile.records.length) {
+      tbody.innerHTML = "<tr><td colspan='6' class='small'>No hay registros todavía.</td></tr>";
+      return;
+    }
+
+    profile.records.forEach(r => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHTML(r.date)}</td>
+        <td>${Number(r.km).toLocaleString("es-MX")} km</td>
+        <td>${formatMoney(r.gas)}</td>
+        <td>${formatMoney(r.extra)}</td>
+        <td>${Number(r.hours).toLocaleString("es-MX")} h</td>
+        <td><button class="danger" onclick="deleteRecord('${r.id}')">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+
+  function getPeriodLabel(period) {
+    if (period === "day") return "Día";
+    if (period === "week") return "Semana";
+    return "Mes";
+  }
+
+  function getPeriodRange(period) {
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    if (period === "week") {
+      const day = start.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      start.setDate(start.getDate() - diff);
+    } else if (period === "month") {
+      start.setDate(1);
+    }
+
+    return { start, end: now };
+  }
+
+  function getPeriodRecords(profile, period) {
+    const { start, end } = getPeriodRange(period);
+
+    return profile.records
+      .filter(r => {
+        const date = new Date(r.date + "T12:00:00");
+        return date >= start && date <= end;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  function downloadPDF(period) {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile || !window.jspdf || !window.jspdf.jsPDF) return;
+
+    const { start, end } = getPeriodRange(period);
+    const rows = getPeriodRecords(profile, period);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("landscape");
+
+    const periodLabel = getPeriodLabel(period);
+
+    const km = rows.reduce((sum, r) => sum + Number(r.km || 0), 0);
+    const gas = rows.reduce((sum, r) => sum + Number(r.gas || 0), 0);
+    const extra = rows.reduce((sum, r) => sum + Number(r.extra || 0), 0);
+    const hours = rows.reduce((sum, r) => sum + Number(r.hours || 0), 0);
+
+    const tableRows = rows.length
+      ? rows.map(r => [
+          r.date,
+          Number(r.km || 0).toLocaleString("es-MX") + " km",
+          formatMoney(r.gas),
+          formatMoney(r.extra),
+          Number(r.hours || 0).toLocaleString("es-MX") + " h"
+        ])
+      : [["Sin registros", "0 km", "$0.00", "$0.00", "0 h"]];
+
+    doc.setFontSize(18);
+    doc.text("Control de Vehículo", 14, 18);
+
+    doc.setFontSize(11);
+    doc.text("Usuario: " + profile.user, 14, 27);
+    doc.text("Carro: " + profile.car, 14, 34);
+    doc.text("Reporte: " + periodLabel, 14, 41);
+    doc.text(
+      "Periodo: " +
+      start.toLocaleDateString("es-MX") +
+      " - " +
+      end.toLocaleDateString("es-MX"),
+      14, 48
+    );
+
+    doc.autoTable({
+      startY: 56,
+      head: [["Fecha", "Kilometraje", "Gasolina", "Gastos extra", "Horas de uso"]],
+      body: tableRows,
+      foot: [[
+        "TOTAL",
+        km.toLocaleString("es-MX") + " km",
+        formatMoney(gas),
+        formatMoney(extra),
+        hours.toLocaleString("es-MX") + " h"
+      ]],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [37, 99, 235] },
+      footStyles: { fontStyle: "bold" }
+    });
+
+    const fileDate = new Date().toISOString().slice(0, 10);
+    const safeUser = profile.user.replace(/[^a-z0-9áéíóúñ_-]/gi, "_");
+
+    doc.save(
+      "Reporte_" + safeUser + "_" + period + "_" + fileDate + ".pdf"
+    );
+  }
+
+  function escapeHTML(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  renderProfiles();
+</script>
+</body>
+</html>
