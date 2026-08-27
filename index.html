@@ -39,6 +39,9 @@
     .menu-option h3{margin:0 0 8px}
     .menu-option p{margin:0;color:#6b7280;line-height:1.5}
     .menu-icon{font-size:42px;line-height:1}
+    .edit-input{width:120px;padding:8px;border:1px solid #2563eb;border-radius:8px;font-size:14px}
+    .edit-actions{display:flex;gap:6px;flex-wrap:wrap}
+    .edit-actions button{margin-top:0;padding:8px 10px;font-size:13px}
     @media(max-width:650px){.row{grid-template-columns:1fr}}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -417,6 +420,43 @@
     renderTrips(profile);
   }
 
+  function editTrip(id) {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile || !profile.trips) return;
+    const trip = profile.trips.find(t => t.id === id);
+    if (!trip) return;
+
+    const row = document.querySelector(`tr[data-trip-id="${id}"]`);
+    if (!row) return;
+
+    row.innerHTML = `
+      <td>${escapeHTML(trip.date)}</td>
+      <td>${trip.shift === "Noche" ? "🌙 Noche" : "🌅 Mañana"}</td>
+      <td><input class="edit-input" id="editStart_${id}" type="number" min="0" step="0.01" value="${Number(trip.startMoney || 0)}"></td>
+      <td><input class="edit-input" id="editEnd_${id}" type="number" min="0" step="0.01" value="${Number(trip.endMoney || 0)}"></td>
+      <td>—</td>
+      <td><div class="edit-actions">
+        <button class="primary" onclick="saveTripEdit('${id}')">Guardar</button>
+        <button class="secondary" onclick="renderTrips(profiles.find(p => p.id === currentProfileId))">Cancelar</button>
+      </div></td>`;
+  }
+
+  function saveTripEdit(id) {
+    const profile = profiles.find(p => p.id === currentProfileId);
+    if (!profile || !profile.trips) return;
+    const trip = profile.trips.find(t => t.id === id);
+    if (!trip) return;
+
+    const start = Number(document.getElementById("editStart_" + id).value);
+    const end = Number(document.getElementById("editEnd_" + id).value);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0) return;
+
+    trip.startMoney = start;
+    trip.endMoney = end;
+    save();
+    renderTrips(profile);
+  }
+
   function renderTrips(profile) {
     const tbody = document.getElementById("tripsTable");
     tbody.innerHTML = "";
@@ -431,7 +471,8 @@
       const difference = Number(t.endMoney || 0) - Number(t.startMoney || 0);
       const shift = t.shift || "Mañana";
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHTML(t.date)}</td><td>${shift === "Noche" ? "🌙 Noche" : "🌅 Mañana"}</td><td>${formatMoney(t.startMoney)}</td><td>${formatMoney(t.endMoney)}</td><td>${formatMoney(difference)}</td><td><button class="danger" onclick="deleteTrip('${t.id}')">Eliminar</button></td>`;
+      tr.dataset.tripId = t.id;
+      tr.innerHTML = `<td>${escapeHTML(t.date)}</td><td>${shift === "Noche" ? "🌙 Noche" : "🌅 Mañana"}</td><td>${formatMoney(t.startMoney)}</td><td>${formatMoney(t.endMoney)}</td><td>${formatMoney(difference)}</td><td><div class="edit-actions"><button class="primary" onclick="editTrip('${t.id}')">✏️ Editar</button><button class="danger" onclick="deleteTrip('${t.id}')">Eliminar</button></div></td>`;
       tbody.appendChild(tr);
     });
   }
